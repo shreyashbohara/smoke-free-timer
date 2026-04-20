@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smoke-Free Timer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      background: #0f172a;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      padding: 24px;
+    }
+
+    h1 {
+      color: #64748b;
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .cards {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: 300px;
+    }
+
+    .person-name {
+      color: #94a3b8;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* --- setup state --- */
+    .setup { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+
+    .setup-question {
+      color: #e2e8f0;
+      font-size: 1rem;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .setup input[type="datetime-local"] {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .setup input[type="datetime-local"]:focus {
+      border-color: #6366f1;
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 11px;
+      border: none;
+      border-radius: 12px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-start:hover { background: #4f46e5; }
+    .btn-start:active { transform: scale(0.97); }
+
+    /* --- running state --- */
+    .running { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+
+    .timer {
+      font-size: 2rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #a5f3fc;
+      letter-spacing: 0.02em;
+    }
+
+    .timer.day-plus { color: #86efac; }
+
+    .since {
+      color: #475569;
+      font-size: 0.72rem;
+      text-align: center;
+    }
+
+    .btn-reset {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 12px;
+      background: #1e3a5f;
+      color: #7dd3fc;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-reset:hover { background: #164e7e; }
+    .btn-reset:active { transform: scale(0.97); }
+
+    .confirm-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn-confirm {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 12px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-confirm:hover { background: #b91c1c; }
+    .btn-confirm:active { transform: scale(0.97); }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 12px;
+      background: #334155;
+      color: #94a3b8;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-cancel:hover { background: #475569; }
+    .btn-cancel:active { transform: scale(0.97); }
+  </style>
+</head>
+<body>
+
+<h1>🚭 Smoke-Free Tracker</h1>
+
+<div class="cards">
+  <div class="card" id="card-0"></div>
+  <div class="card" id="card-1"></div>
+</div>
+
+<script>
+  const PEOPLE = [
+    { label: 'Person 1', key: 'sf_person0' },
+    { label: 'Person 2', key: 'sf_person1' },
+  ];
+
+  function load(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+  }
+
+  function save(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  function formatElapsed(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const s  = totalSec % 60;
+    const m  = Math.floor(totalSec / 60) % 60;
+    const h  = Math.floor(totalSec / 3600) % 24;
+    const d  = Math.floor(totalSec / 86400);
+    const pad = n => String(n).padStart(2, '0');
+    const parts = [];
+    if (d) parts.push(`${d}d`);
+    if (d || h) parts.push(`${h}h`);
+    if (d || h || m) parts.push(`${m}m`);
+    parts.push(`${pad(s)}s`);
+    return parts.join(' ');
+  }
+
+  function formatDate(ts) {
+    return new Date(ts).toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  function buildCard(index) {
+    const person = PEOPLE[index];
+    const card   = document.getElementById(`card-${index}`);
+    let state    = load(person.key);
+    let ticker   = null;
+
+    function renderSetup() {
+      if (ticker) { clearInterval(ticker); ticker = null; }
+
+      const now = new Date();
+      const localISO = new Date(now - now.getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 16);
+
+      card.innerHTML = `
+        <span class="person-name">${person.label}</span>
+        <div class="setup">
+          <p class="setup-question">When did you last smoke?</p>
+          <input type="datetime-local" id="dt-${index}" value="${localISO}" max="${localISO}" />
+          <button class="btn-start" id="btn-start-${index}">Start Timer</button>
+        </div>
+      `;
+
+      document.getElementById(`btn-start-${index}`).addEventListener('click', () => {
+        const val = document.getElementById(`dt-${index}`).value;
+        if (!val) return;
+        const ts = new Date(val).getTime();
+        if (isNaN(ts) || ts > Date.now()) return;
+        state = { lastSmoked: ts };
+        save(person.key, state);
+        renderRunning();
+      });
+    }
+
+    function renderRunning() {
+      card.innerHTML = `
+        <span class="person-name">${person.label}</span>
+        <div class="running">
+          <div class="timer" id="timer-${index}">0s</div>
+          <div class="since" id="since-${index}"></div>
+          <button class="btn-reset" id="btn-reset-${index}">I just smoked — reset</button>
+        </div>
+      `;
+
+      document.getElementById(`btn-reset-${index}`).addEventListener('click', () => {
+        const running = card.querySelector('.running');
+        running.innerHTML = `
+          <div class="timer" id="timer-${index}">0s</div>
+          <div class="since" id="since-${index}"></div>
+          <p style="color:#94a3b8;font-size:0.8rem;">Did you just smoke?</p>
+          <div class="confirm-row">
+            <button class="btn-confirm" id="btn-confirm-${index}">Yes, reset</button>
+            <button class="btn-cancel" id="btn-cancel-${index}">Cancel</button>
+          </div>
+        `;
+        document.getElementById(`btn-confirm-${index}`).addEventListener('click', () => {
+          state = null;
+          save(person.key, null);
+          renderSetup();
+        });
+        document.getElementById(`btn-cancel-${index}`).addEventListener('click', () => {
+          renderRunning();
+        });
+      });
+
+      function tick() {
+        const elapsed = Date.now() - state.lastSmoked;
+        const timerEl = document.getElementById(`timer-${index}`);
+        const sinceEl = document.getElementById(`since-${index}`);
+        if (!timerEl) { clearInterval(ticker); return; }
+        timerEl.textContent = formatElapsed(elapsed);
+        timerEl.className   = elapsed >= 86_400_000 ? 'timer day-plus' : 'timer';
+        sinceEl.textContent = `since ${formatDate(state.lastSmoked)}`;
+      }
+
+      tick();
+      ticker = setInterval(tick, 1000);
+    }
+
+    if (state && state.lastSmoked) {
+      renderRunning();
+    } else {
+      renderSetup();
+    }
+  }
+
+  buildCard(0);
+  buildCard(1);
+</script>
+</body>
+</html>
